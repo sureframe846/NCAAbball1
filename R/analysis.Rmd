@@ -12,25 +12,34 @@ library(tidyverse)
 library(bigballR)
 library(magrittr)
 library(stringr)
+library(sqldf)
+
 data = read.csv("../kenpom.csv", stringsAsFactors = F)
 data %<>%
     mutate(team_fixed = str_trim(gsub('[0-9]+', '', team)))
 data$tournament_team = grepl("[-]?[0-9]", data$team)
 data %<>% filter(tournament_team == 1)
-data %<>% left_join(ncaahoopR::dict[,1:2], by = c("team_fixed" = "NCAA"))
-data %<>% left_join(ncaahoopR::dict[,2:3], by = c("team_fixed" = "ESPN"))
-data %<>% left_join(ncaahoopR::dict[,6:7], by = c("team_fixed" ="name_247"))
-data %<>% left_join(ncaahoopR::dict[,3:4], by = c("team_fixed" = "ESPN_PBP"))
 
-sqldf(‘select a.* 
+dict = ncaahoopR::dict
+data = sqldf('select a.* ,b.*
        from data a 
-       left join ncaahoopR::dict b
+       inner join dict b
        on a.team_fixed = b.NCAA
        or a.team_fixed = b.ESPN
        or a.team_fixed = b.ESPN_PBP
-       where age is not null group by age’)
+       or a.team_fixed = b.name_247
+       or a.team_fixed = b.Trank
+       or a.team_fixed = b.Warren_Nolan
+       ')
 
 
+
+data %<>% inner_join(ncaahoopR::ids, by = c("ESPN" = "team"))
+```
+
+
+```{r}
+ncaahoopR::ids
 names(dict)
 
 
