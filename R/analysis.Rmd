@@ -1,0 +1,95 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,warning = F, echo = F)
+```
+
+```{r}
+library(tidyverse)
+library(bigballR)
+library(magrittr)
+library(stringr)
+data = read.csv("../kenpom.csv", stringsAsFactors = F)
+data %<>%
+    mutate(team_fixed = str_trim(gsub('[0-9]+', '', team)))
+data$tournament_team = grepl("[-]?[0-9]", data$team)
+data %<>% filter(tournament_team == 1)
+data %<>% left_join(ncaahoopR::dict[,1:2], by = c("team_fixed" = "NCAA"))
+data %<>% left_join(ncaahoopR::dict[,2:3], by = c("team_fixed" = "ESPN"))
+data %<>% left_join(ncaahoopR::dict[,6:7], by = c("team_fixed" ="name_247"))
+data %<>% left_join(ncaahoopR::dict[,3:4], by = c("team_fixed" = "ESPN_PBP"))
+
+sqldf(‘select a.* 
+       from data a 
+       left join ncaahoopR::dict b
+       on a.team_fixed = b.NCAA
+       or a.team_fixed = b.ESPN
+       or a.team_fixed = b.ESPN_PBP
+       where age is not null group by age’)
+
+
+names(dict)
+
+
+
+
+bigballR::teamids
+bigballR::get_team_schedule(season =  "2020-21",team.name = 
+test = get_team_schedule(season =  "2020-21",team.name = data$team_fixed[1])
+
+test2 = get_team_schedule(season =  "2020-21",team.name = data$team_fixed[2])
+
+for (i in 2:nrow(data)){
+    
+}
+```
+
+```{r}
+names(dict)
+```
+```{r}
+library(ncaahoopR)
+ncaahoopR::dict
+
+games = ncaahoopR::get_schedule(team = "Gonzaga")
+games$team = "Gonzaga"
+
+for (i in 2:nrow(data)) {
+    if_next = F
+    temp = tryCatch(
+        get_schedule(team = data$team_fixed[i]),
+        error = function(e) {
+            print(e)
+            print(data$team_fixed[i])
+            if_next = T
+        }
+    )
+    if(if_next) {
+        next
+    }
+    temp$team = data$team_fixed[i]
+    games = tryCatch( 
+        rbind(games, temp),
+        error = function(e) {
+            print(e)
+            print(ncol(games))
+            print(ncol(temp))
+            print(temp)
+            
+        }
+    )
+}
+
+```
+
+```{r}
+
+data %<>% left_join(ncaahoopR::dict[,1], by = c("team_fixed" = "NCAA"))
+data %<>% left_join(ncaahoopR::dict[,2], by = c("team_fixed" = "ESPN"))
+data %<>% left_join(ncaahoopR::dict[,3], by = c("team_fixed" = "ESPN_PBP"))
+data %<>% left_join(ncaahoopR::dict, by = c("team_fixed" = "ESPN_PBP"))
+```
+
