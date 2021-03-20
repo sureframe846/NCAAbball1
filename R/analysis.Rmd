@@ -1,6 +1,8 @@
 ---
 title: "Untitled"
-output: html_document
+output: 
+    html_document:
+runtime: shiny
 ---
 
 ```{r setup, include=FALSE}
@@ -13,7 +15,11 @@ library(bigballR)
 library(magrittr)
 library(stringr)
 library(sqldf)
+library(ncaahoopR)
+library(shiny)
+```
 
+```{r, eval = F}
 data = read.csv("../kenpom.csv", stringsAsFactors = F)
 data %<>%
     mutate(team_fixed = str_trim(gsub('[0-9]+', '', team)))
@@ -32,54 +38,29 @@ data = sqldf('select a.* ,b.*
        or a.team_fixed = b.Warren_Nolan
        ')
 
-
-
 data %<>% inner_join(ncaahoopR::ids, by = c("ESPN" = "team"))
 ```
 
 
-```{r}
-ncaahoopR::ids
-names(dict)
 
-
-
-
-bigballR::teamids
-bigballR::get_team_schedule(season =  "2020-21",team.name = 
-test = get_team_schedule(season =  "2020-21",team.name = data$team_fixed[1])
-
-test2 = get_team_schedule(season =  "2020-21",team.name = data$team_fixed[2])
-
-for (i in 2:nrow(data)){
-    
-}
-```
-
-```{r}
-names(dict)
-```
-```{r}
-library(ncaahoopR)
-ncaahoopR::dict
-
+```{r, eval = F}
 games = ncaahoopR::get_schedule(team = "Gonzaga")
 games$team = "Gonzaga"
 
 for (i in 2:nrow(data)) {
     if_next = F
     temp = tryCatch(
-        get_schedule(team = data$team_fixed[i]),
+        get_schedule(team = data$ESPN[i]),
         error = function(e) {
             print(e)
-            print(data$team_fixed[i])
+            print(data$ESPN[i])
             if_next = T
         }
     )
     if(if_next) {
         next
     }
-    temp$team = data$team_fixed[i]
+    temp$team = data$ESPN[i]
     games = tryCatch( 
         rbind(games, temp),
         error = function(e) {
@@ -87,18 +68,51 @@ for (i in 2:nrow(data)) {
             print(ncol(games))
             print(ncol(temp))
             print(temp)
-            
         }
     )
 }
 
 ```
 
-```{r}
+Process games
 
-data %<>% left_join(ncaahoopR::dict[,1], by = c("team_fixed" = "NCAA"))
-data %<>% left_join(ncaahoopR::dict[,2], by = c("team_fixed" = "ESPN"))
-data %<>% left_join(ncaahoopR::dict[,3], by = c("team_fixed" = "ESPN_PBP"))
-data %<>% left_join(ncaahoopR::dict, by = c("team_fixed" = "ESPN_PBP"))
+```{r, eval = F}
+games = filter(games, opponent %in% data$ESPN)
+games %>% 
+    group_by(team) %>%
+    arrange(desc(date)) %>%
+    mutate(rank = 1:n(),
+           win = ifelse(team_score > opp_score,1,0)) %>%
+    filter(rank <= 6 & is.na(team_score)== F) -> last_5_games
+
+last_5_games %>%
+    left_join(data[,-2], by = c("opponent" = "ESPN")) %>%
+    group_by(team) %>%
+    summarize(pct_win = mean(win),
+              mean_rank = mean(Rank),
+              median_rank = median(Rank),
+              mean_opp_str_schedule = mean(adjEM)
+              
+    ) %>%
+    arrange(desc(pct_win)) -> teams_summarized
+
+teams_summarized2 = teams_summarized %>% left_join(select(data,Rank, ESPN, adjT), by = c("team" = "ESPN"))
+saveRDS(teams_summarized2, "teams_summarized.rds")
+
+```
+
+Shiny Widget
+
+```{r}
+teams_summarized = readRDS("teams_summarized.rds")
+teams = unique(teams_summarized$team)
+
+shiny::selectInput(inputId = "t1",label = "Team 1", choices = teams)
+shiny::selectInput(inputId = "t2",label = "Team 2", choices = teams)
+
+renderTable({
+  dat = filter(teams_summarized, team %in% c(input$t1, input$t2));
+  dat
+})
 ```
 
